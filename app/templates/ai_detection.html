@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}AI Theft & Anomaly Detection - {{ project_short_name }}{% endblock %}
+{% block page_name %}AI Anomaly Detection{% endblock %}
+
+{% block content %}
+<!-- Page Header with Compact Toolbar -->
+<div class="page-header">
+  <div class="page-header-text">
+    <h2>Machine Learning Anomaly Detection & Triage</h2>
+    <p>Unsupervised Isolation Forest score normalization with priority rules and supervised Random Forest benchmarking.</p>
+  </div>
+
+  <div class="page-toolbar">
+    <!-- Retrain Pipeline Button -->
+    <button class="btn-sm btn-subtle" onclick="Detection.retrainPipeline()" id="btn-retrain" title="Re-run feature extraction and model inference">
+      <i class="fa-solid fa-arrows-spin"></i>
+      <span>Retrain Pipeline</span>
+    </button>
+
+    <!-- Export CSV -->
+    <a href="/api/export/predictions" id="btn-export-predictions" class="btn-sm btn-primary" title="Download prediction results">
+      <i class="fa-solid fa-file-arrow-down"></i>
+      <span>Export Predictions</span>
+    </a>
+  </div>
+</div>
+
+<!-- Operational Context & Legal Disclaimer Banner -->
+<div class="panel-card" style="border-left: 4px solid var(--electric-blue); padding: 0.85rem 1.15rem; margin-bottom: 1.25rem; font-size: 0.825rem; color: var(--text-secondary); line-height: 1.5;">
+  <div style="display: flex; align-items: flex-start; gap: 0.65rem;">
+    <i class="fa-solid fa-shield-halved" style="color: var(--electric-blue); font-size: 1.1rem; margin-top: 0.15rem;"></i>
+    <div>
+      <strong style="color: #FFFFFF; font-weight: 600;">Supervisory AI Context &amp; Legal Notice:</strong>
+      Anomaly scoring quantifies statistical deviations across 10 temporal consumption features to prioritize candidate meters for field inspection. Unsupervised scores are normalized to a calibrated <strong style="color: var(--cyan-accent); font-family: var(--font-mono);">[0.0, 1.0]</strong> scale and do not constitute legal proof of electricity theft without verified on-site field evidence.
+    </div>
+  </div>
+</div>
+
+<!-- Priority Threshold Rules Guide (Data Panels with Semantic Left Accents) -->
+<div class="kpi-grid" style="margin-bottom: 1.25rem;">
+  <div class="kpi-card" style="border-left-color: var(--danger);">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <span class="badge-priority badge-critical">Critical</span>
+      <span style="font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; color: var(--danger);">0.75 – 1.00</span>
+    </div>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; line-height: 1.4;">Urgent physical meter seal &amp; CT inspection within 24h</div>
+  </div>
+
+  <div class="kpi-card" style="border-left-color: var(--warning);">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <span class="badge-priority badge-high">High</span>
+      <span style="font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; color: var(--warning);">0.60 – 0.74</span>
+    </div>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; line-height: 1.4;">Field meter audit &amp; digital tamper log inspection</div>
+  </div>
+
+  <div class="kpi-card" style="border-left-color: var(--electric-blue);">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <span class="badge-priority badge-medium">Medium</span>
+      <span style="font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; color: var(--electric-blue);">0.45 – 0.59</span>
+    </div>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; line-height: 1.4;">Automated AMI telemetry monitoring &amp; historical checks</div>
+  </div>
+
+  <div class="kpi-card" style="border-left-color: var(--text-muted);">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <span class="badge-priority badge-low">Low</span>
+      <span style="font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; color: var(--text-muted);">0.00 – 0.44</span>
+    </div>
+    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; line-height: 1.4;">Standard normative consumption; no action required</div>
+  </div>
+</div>
+
+<!-- Filters Bar -->
+<div class="panel-card" style="margin-bottom: 1rem; padding: 0.75rem;">
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.65rem;">
+    <!-- Search -->
+    <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 200px;">
+      <input type="text" id="filter-search" class="form-control-sm" style="width: 100%;" placeholder="Search Consumer ID (e.g. CONS-0012) or Meter ID..." oninput="Detection.onSearchInput()">
+    </div>
+
+    <!-- Feeder Filter -->
+    <select id="filter-feeder" class="form-select-sm" onchange="Detection.loadPredictions(1)">
+      <option value="all">All Feeders</option>
+      {% for f in feeders %}
+      <option value="{{ f.feeder_id }}">{{ f.feeder_id }}</option>
+      {% endfor %}
+    </select>
+
+    <!-- Tariff Filter -->
+    <select id="filter-tariff" class="form-select-sm" onchange="Detection.loadPredictions(1)">
+      <option value="all">All Tariffs</option>
+      <option value="Residential">Residential</option>
+      <option value="Commercial">Commercial</option>
+      <option value="Agricultural">Agricultural</option>
+    </select>
+
+    <!-- Priority Filter -->
+    <select id="filter-priority" class="form-select-sm" onchange="Detection.loadPredictions(1)">
+      <option value="all">All Priorities</option>
+      <option value="Critical">Critical Only</option>
+      <option value="High">High Only</option>
+      <option value="Medium">Medium Only</option>
+      <option value="Low">Low Only</option>
+    </select>
+
+    <!-- Sort Order -->
+    <select id="filter-sort" class="form-select-sm" onchange="Detection.loadPredictions(1)">
+      <option value="desc">Score: Highest First</option>
+      <option value="asc">Score: Lowest First</option>
+    </select>
+  </div>
+</div>
+
+<!-- Predictions Data Table -->
+<div class="panel-card">
+  <div class="table-responsive-custom">
+    <table class="custom-table" id="predictions-table">
+      <thead>
+        <tr>
+          <th>Consumer ID</th>
+          <th>Meter ID</th>
+          <th>Feeder</th>
+          <th>Tariff</th>
+          <th>Sanctioned</th>
+          <th>Raw IF Score</th>
+          <th>Normalized Score (0-1)</th>
+          <th>Review Priority</th>
+          <th>RF Benchmark</th>
+          <th>Diagnostic Reason</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="predictions-table-body">
+        <tr>
+          <td colspan="11" class="text-center" style="padding: 2.5rem;">
+            <div class="spinner-container">
+              <div class="spinner"></div>
+              <div>Computing Isolation Forest anomaly scores...</div>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination Controls -->
+  <div class="pagination-container">
+    <span id="pred-page-info">Showing page 1</span>
+    <div class="pagination-controls">
+      <button class="page-btn" id="pred-btn-prev" onclick="Detection.changePage(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
+      <button class="page-btn" id="pred-btn-next" onclick="Detection.changePage(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/detection.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,55 @@
+# ===================================================================
+# Git Ignore Configuration for Electricity Theft & Distribution Loss Detection
+# ===================================================================
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+
+# Pytest / Coverage / Tool Caches
+.pytest_cache/
+.coverage
+htmlcov/
+.cache/
+
+# SQLite Temporary Runtime Files (main .db is kept for initial demo seed)
+database/*.db-journal
+database/*.db-wal
+database/*.db-shm
+
+# Ephemeral CSV Exports
+exports/*.csv
+
+# Temporary Scratch Files & Local Logs
+scratch/
+*.log
+
+# IDE and Editor Directories
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+desktop.ini

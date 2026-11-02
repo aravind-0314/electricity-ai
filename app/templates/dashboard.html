@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}Executive Dashboard - {{ project_short_name }}{% endblock %}
+{% block page_name %}Executive Dashboard{% endblock %}
+
+{% block content %}
+<!-- Page Header with Compact Toolbar -->
+<div class="page-header">
+  <div class="page-header-text">
+    <h2>Executive Loss Monitoring Dashboard</h2>
+    <p>Real-time supervisory energy accounting and AI anomaly indicators across 5 radial distribution feeders.</p>
+  </div>
+
+  <div class="page-toolbar">
+    <!-- Feeder Filter -->
+    <select id="feeder-filter" class="form-select-sm" onchange="Dashboard.loadAll()">
+      <option value="all">All Feeders (5 Total)</option>
+      {% for f in feeders %}
+      <option value="{{ f.feeder_id }}">{{ f.feeder_id }} - {{ f.name }}</option>
+      {% endfor %}
+    </select>
+
+    <!-- Refresh Button -->
+    <button class="btn-sm btn-subtle" id="btn-refresh-dashboard" onclick="Dashboard.refresh()" title="Refresh Dashboard">
+      <i class="fa-solid fa-arrows-rotate"></i>
+      <span>Refresh</span>
+    </button>
+
+    <!-- Energy Accounting Link -->
+    <a href="{{ url_for('main.energy_accounting') }}" class="btn-sm btn-primary">
+      <span>Energy Accounting</span>
+      <i class="fa-solid fa-arrow-right"></i>
+    </a>
+  </div>
+</div>
+
+<!-- 8 Primary KPI Metric Panels (Enterprise Smart Grid Metrics) -->
+<div class="kpi-grid">
+  <!-- 1. Total Consumers -->
+  <div class="kpi-card" style="border-left-color: var(--electric-blue);">
+    <div class="kpi-header">
+      <span class="kpi-label">Total Consumers</span>
+      <span class="kpi-icon-badge icon-blue"><i class="fa-solid fa-users"></i></span>
+    </div>
+    <div class="kpi-value" id="kpi-consumers">--</div>
+    <div class="kpi-sub"><span class="kpi-dot dot-success"></span> 100% AMR Metered</div>
+  </div>
+
+  <!-- 2. Active Feeders -->
+  <div class="kpi-card" style="border-left-color: var(--cyan-accent);">
+    <div class="kpi-header">
+      <span class="kpi-label">Active Feeders</span>
+      <span class="kpi-icon-badge icon-cyan"><i class="fa-solid fa-network-wired"></i></span>
+    </div>
+    <div class="kpi-value" id="kpi-feeders">--</div>
+    <div class="kpi-sub">11 kV Radial Distribution</div>
+  </div>
+
+  <!-- 3. Total Supplied -->
+  <div class="kpi-card" style="border-left-color: var(--electric-blue);">
+    <div class="kpi-header">
+      <span class="kpi-label">Energy Supplied</span>
+      <span class="kpi-icon-badge icon-blue"><i class="fa-solid fa-bolt"></i></span>
+    </div>
+    <div class="kpi-value" id="kpi-supplied">--</div>
+    <div class="kpi-sub">Substation Feeder Head</div>
+  </div>
+
+  <!-- 4. Total Billed -->
+  <div class="kpi-card" style="border-left-color: var(--smart-teal);">
+    <div class="kpi-header">
+      <span class="kpi-label">Energy Billed</span>
+      <span class="kpi-icon-badge icon-teal"><i class="fa-solid fa-receipt"></i></span>
+    </div>
+    <div class="kpi-value value-success" id="kpi-billed">--</div>
+    <div class="kpi-sub">Metered Revenue Energy</div>
+  </div>
+
+  <!-- 5. Technical Losses -->
+  <div class="kpi-card" style="border-left-color: var(--warning);">
+    <div class="kpi-header">
+      <span class="kpi-label">Technical Losses</span>
+      <span class="kpi-icon-badge icon-amber"><i class="fa-solid fa-temperature-half"></i></span>
+    </div>
+    <div class="kpi-value" id="kpi-technical">--</div>
+    <div class="kpi-sub">I²R Line &amp; Core Losses</div>
+  </div>
+
+  <!-- 6. Unexplained Losses -->
+  <div class="kpi-card" style="border-left-color: var(--danger);">
+    <div class="kpi-header">
+      <span class="kpi-label">Unexplained Losses</span>
+      <span class="kpi-icon-badge icon-danger"><i class="fa-solid fa-triangle-exclamation"></i></span>
+    </div>
+    <div class="kpi-value value-danger" id="kpi-unexplained">--</div>
+    <div class="kpi-sub"><span class="kpi-dot dot-danger"></span> Suspected Commercial Loss</div>
+  </div>
+
+  <!-- 7. Requiring Inspection -->
+  <div class="kpi-card" style="border-left-color: var(--danger);">
+    <div class="kpi-header">
+      <span class="kpi-label">Requiring Inspection</span>
+      <span class="kpi-icon-badge icon-danger"><i class="fa-solid fa-magnifying-glass-location"></i></span>
+    </div>
+    <div class="kpi-value value-danger" id="kpi-inspection">--</div>
+    <div class="kpi-sub"><span class="kpi-dot dot-danger"></span> High Anomaly Triage</div>
+  </div>
+
+  <!-- 8. Distribution Loss -->
+  <div class="kpi-card" style="border-left-color: var(--warning);">
+    <div class="kpi-header">
+      <span class="kpi-label">Distribution Loss</span>
+      <span class="kpi-icon-badge icon-amber"><i class="fa-solid fa-chart-pie"></i></span>
+    </div>
+    <div class="kpi-value value-warning" id="kpi-loss-pct">--</div>
+    <div class="kpi-sub" id="kpi-loss-sub">Overall Grid Loss Rate</div>
+  </div>
+</div>
+
+<!-- Dashboard Charts Grid (Balanced Minimalist Visualizations) -->
+<div class="dashboard-grid">
+  <!-- Chart 1: Electricity Supply vs Billed Energy (Col 8) -->
+  <div class="col-8 panel-card">
+    <div class="panel-header">
+      <div>
+        <h3 class="panel-title"><i class="fa-solid fa-chart-area" style="color: #2563EB;"></i> Electricity Supply vs Billed Energy</h3>
+        <p class="panel-subtitle">30-day comparative trend across all metering points</p>
+      </div>
+    </div>
+    <div class="chart-container" style="height: 240px;">
+      <canvas id="chart-supply-billed"></canvas>
+    </div>
+  </div>
+
+  <!-- Chart 2: Priority Distribution (Col 4) -->
+  <div class="col-4 panel-card">
+    <div class="panel-header">
+      <div>
+        <h3 class="panel-title"><i class="fa-solid fa-chart-pie" style="color: #0D9488;"></i> Review Priority Breakdown</h3>
+        <p class="panel-subtitle">Isolation Forest triage classifications</p>
+      </div>
+    </div>
+    <div class="chart-container" style="height: 240px;">
+      <canvas id="chart-priority-dist"></canvas>
+    </div>
+  </div>
+
+  <!-- Chart 3: Feeder-wise Energy Distribution (Col 6) -->
+  <div class="col-6 panel-card">
+    <div class="panel-header">
+      <div>
+        <h3 class="panel-title"><i class="fa-solid fa-chart-column" style="color: #2563EB;"></i> Feeder Energy Comparison</h3>
+        <p class="panel-subtitle">Supplied vs Billed vs Technical Losses by feeder</p>
+      </div>
+    </div>
+    <div class="chart-container" style="height: 240px;">
+      <canvas id="chart-feeder-dist"></canvas>
+    </div>
+  </div>
+
+  <!-- Chart 4: Technical vs Unexplained Loss (Col 6) -->
+  <div class="col-6 panel-card">
+    <div class="panel-header">
+      <div>
+        <h3 class="panel-title"><i class="fa-solid fa-chart-line" style="color: #F59E0B;"></i> Technical vs Unexplained Loss</h3>
+        <p class="panel-subtitle">Physical ohmic dissipation vs candidate commercial discrepancies</p>
+      </div>
+    </div>
+    <div class="chart-container" style="height: 240px;">
+      <canvas id="chart-loss-breakdown"></canvas>
+    </div>
+  </div>
+
+  <!-- Recent Anomaly Detection Alerts Table (Col 12) -->
+  <div class="col-12 panel-card">
+    <div class="panel-header">
+      <div>
+        <h3 class="panel-title"><i class="fa-solid fa-triangle-exclamation" style="color: #DC2626;"></i> High-Priority Consumers Flagged for Field Inspection</h3>
+        <p class="panel-subtitle">Meters with abnormal consumption patterns requiring investigation</p>
+      </div>
+      <a href="{{ url_for('main.ai_detection') }}" class="btn-sm btn-subtle">
+        <span>View All 500 Consumers</span>
+        <i class="fa-solid fa-arrow-right"></i>
+      </a>
+    </div>
+
+    <div class="table-responsive-custom">
+      <table class="custom-table" id="alerts-table">
+        <thead>
+          <tr>
+            <th>Consumer ID</th>
+            <th>Feeder</th>
+            <th>Tariff</th>
+            <th>Sanctioned Load</th>
+            <th>Anomaly Score</th>
+            <th>Review Priority</th>
+            <th>Diagnostic Reason</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="alerts-table-body">
+          <tr>
+            <td colspan="8" class="text-center" style="padding: 2rem;">
+              <div class="spinner-container">
+                <div class="spinner"></div>
+                <div>Loading anomaly alerts...</div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

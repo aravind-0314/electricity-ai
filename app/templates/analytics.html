@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics & Model Insights - {{ project_short_name }}{% endblock %}
+{% block page_name %}Analytics & Insights{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+  <div class="page-header-text">
+    <h2>Grid Analytics & Model Performance Insights</h2>
+    <p>Empirical validation of unsupervised Isolation Forest and supervised Random Forest loss detection algorithms.</p>
+  </div>
+</div>
+
+<!-- Methodology Note on Synthetic Labels -->
+<div class="panel-card" style="display: flex; align-items: flex-start; gap: 0.75rem; border-left: 4px solid var(--electric-blue); padding: 0.85rem 1.15rem; margin-bottom: 1.25rem;">
+  <i class="fa-solid fa-shield-halved" style="color: var(--electric-blue); font-size: 1.1rem; margin-top: 0.15rem;"></i>
+  <div style="font-size: 0.825rem; color: var(--text-secondary); line-height: 1.5;">
+    <strong style="color: #FFFFFF; font-weight: 600;">Validation Methodology:</strong>
+    Supervised Random Forest metrics are evaluated strictly on a held-out synthetic test set (30% split, 150 consumers). Demonstrates feature discriminability under simulated tampering physics without data leakage.
+  </div>
+</div>
+
+<!-- 5 Evaluation Metric Panels -->
+<div class="kpi-grid" style="grid-template-columns: repeat(5, 1fr); margin-bottom: 1.25rem;">
+  <!-- Accuracy -->
+  <div class="kpi-card" style="border-left-color: var(--electric-blue);">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+      <span class="kpi-label">Accuracy</span>
+      <div class="kpi-icon-badge icon-blue">
+        <i class="fa-solid fa-bullseye"></i>
+      </div>
+    </div>
+    <div class="kpi-value" id="metric-accuracy">--%</div>
+    <div class="kpi-sub">(TP + TN) / Total</div>
+  </div>
+
+  <!-- Precision -->
+  <div class="kpi-card" style="border-left-color: var(--smart-teal);">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+      <span class="kpi-label">Precision</span>
+      <div class="kpi-icon-badge icon-teal">
+        <i class="fa-solid fa-crosshairs"></i>
+      </div>
+    </div>
+    <div class="kpi-value value-success" id="metric-precision">--%</div>
+    <div class="kpi-sub">TP / (TP + FP)</div>
+  </div>
+
+  <!-- Recall -->
+  <div class="kpi-card" style="border-left-color: var(--warning);">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+      <span class="kpi-label">Recall</span>
+      <div class="kpi-icon-badge icon-amber">
+        <i class="fa-solid fa-filter-circle-dollar"></i>
+      </div>
+    </div>
+    <div class="kpi-value value-warning" id="metric-recall">--%</div>
+    <div class="kpi-sub">TP / (TP + FN)</div>
+  </div>
+
+  <!-- F1 Score -->
+  <div class="kpi-card" style="border-left-color: var(--cyan-accent);">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+      <span class="kpi-label">F1-Score</span>
+      <div class="kpi-icon-badge icon-cyan">
+        <i class="fa-solid fa-scale-balanced"></i>
+      </div>
+    </div>
+    <div class="kpi-value" id="metric-f1">--</div>
+    <div class="kpi-sub">Harmonic Mean</div>
+  </div>
+
+  <!-- ROC AUC -->
+  <div class="kpi-card" style="border-left-color: var(--smart-teal);">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+      <span class="kpi-label">ROC-AUC</span>
+      <div class="kpi-icon-badge icon-teal">
+        <i class="fa-solid fa-chart-area"></i>
+      </div>
+    </div>
+    <div class="kpi-value value-success" id="metric-roc">--</div>
+    <div class="kpi-sub">Area Under Curve</div>
+  </div>
+</div>
+
+<!-- Charts Grid -->
+<div class="dashboard-grid">
+  <!-- Chart 1: 30-Day Grid Load Dynamics (Col 8) -->
+  <div class="col-8 panel-card">
+    <div class="panel-header">
+      <div>
+        <h3 class="panel-title"><i class="fa-solid fa-wave-square" style="color: var(--electric-blue); margin-right: 0.4rem;"></i> 30-Day Grid Load Dynamics</h3>
+        <p class="panel-subtitle">Peak loading vs baseload across substations</p>
+      </div>
+    </div>
+    <div class="chart-container" style="height: 240px;">
+      <canvas id="chart-grid-dynamics"></canvas>
+    </div>
+  </div>
+
+  <!-- Chart 7: Confusion Matrix (Col 4) -->
+  <div class="col-4 panel-card">
+    <div class="panel-header">
+      <div>
+        <h3 class="panel-title"><i class="fa-solid fa-table-cells" style="color: var(--electric-blue); margin-right: 0.4rem;"></i> Confusion Matrix</h3>
+        <p class="panel-subtitle">Held-out test set (N = 150)</p>
+      </div>
+      <span class="badge-priority badge-medium" style="font-size: 0.65rem;">30% Split</span>
+    </div>
+    
+    <div style="display: flex; flex-direction: column; justify-content: center; height: 240px; padding: 0.25rem;">
+      <div style="text-align: center; font-size: 0.68rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.4rem; letter-spacing: 0.05em;">PREDICTED CLASS</div>
+      <div style="display: grid; grid-template-columns: 36px 1fr 1fr; gap: 0.4rem; align-items: center;">
+        <div></div>
+        <div style="text-align: center; font-size: 0.72rem; font-weight: 600; color: var(--text-muted);">Normal (0)</div>
+        <div style="text-align: center; font-size: 0.72rem; font-weight: 600; color: var(--text-muted);">Anomaly (1)</div>
+
+        <!-- Row 1: True Normal -->
+        <div style="writing-mode: vertical-rl; transform: rotate(180deg); font-size: 0.68rem; font-weight: 600; color: var(--text-muted); text-align: center; letter-spacing: 0.04em;">ACTUAL: Norm</div>
+        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-sm); padding: 0.65rem; text-align: center;">
+          <div style="font-size: 1.3rem; font-weight: 600; color: var(--smart-teal); font-family: var(--font-mono);" id="cm-tn">--</div>
+          <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.15rem;">True Negative</div>
+        </div>
+        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-sm); padding: 0.65rem; text-align: center;">
+          <div style="font-size: 1.3rem; font-weight: 600; color: var(--danger); font-family: var(--font-mono);" id="cm-fp">--</div>
+          <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.15rem;">False Positive</div>
+        </div>
+
+        <!-- Row 2: True Anomaly -->
+        <div style="writing-mode: vertical-rl; transform: rotate(180deg); font-size: 0.68rem; font-weight: 600; color: var(--text-muted); text-align: center; letter-spacing: 0.04em;">ACTUAL: Anom</div>
+        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-sm); padding: 0.65rem; text-align: center;">
+          <div style="font-size: 1.3rem; font-weight: 600; color: var(--danger); font-family: var(--font-mono);" id="cm-fn">--</div>
+          <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.15rem;">False Negative</div>
+        </div>
+        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-sm); padding: 0.65rem; text-align: center;">
+          <div style="font-size: 1.3rem; font-weight: 600; color: var(--smart-teal); font-family: var(--font-mono);" id="cm-tp">--</div>
+          <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.15rem;">True Positive</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart 5: Random Forest Feature Importance (Col 6) -->
+  <div class="col-6 panel-card">
+    <div class="panel-header">
+      <div>
+        <h3 class="panel-title"><i class="fa-solid fa-chart-simple" style="color: var(--smart-teal); margin-right: 0.4rem;"></i> Random Forest Feature Importance</h3>
+        <p class="panel-subtitle">Gini impurity reduction across 10 engineered features</p>
+      </div>
+    </div>
+    <div class="chart-container" style="height: 240px;">
+      <canvas id="chart-feature-importance"></canvas>
+    </div>
+  </div>
+
+  <!-- Chart 6: Isolation Forest Anomaly Score Distribution (Col 6) -->
+  <div class="col-6 panel-card">
+    <div class="panel-header">
+      <div>
+        <h3 class="panel-title"><i class="fa-solid fa-chart-column" style="color: var(--electric-blue); margin-right: 0.4rem;"></i> Isolation Forest Score Distribution</h3>
+        <p class="panel-subtitle">Frequency histogram of normalized scores [0.0 - 1.0]</p>
+      </div>
+    </div>
+    <div class="chart-container" style="height: 240px;">
+      <canvas id="chart-score-dist"></canvas>
+    </div>
+  </div>
+
+  <!-- Chart 2 & 3: Feeder Loss Comparison (Col 6) -->
+  <div class="col-6 panel-card">
+    <div class="panel-header">
+      <div>
+        <h3 class="panel-title"><i class="fa-solid fa-diagram-project" style="color: var(--warning); margin-right: 0.4rem;"></i> Feeder Loss Comparison</h3>
+        <p class="panel-subtitle">Technical dissipation vs unexplained commercial loss</p>
+      </div>
+    </div>
+    <div class="chart-container" style="height: 240px;">
+      <canvas id="chart-feeder-loss"></canvas>
+    </div>
+  </div>
+
+  <!-- Chart 4: Consumer Consumption Distribution (Col 6) -->
+  <div class="col-6 panel-card">
+    <div class="panel-header">
+      <div>
+        <h3 class="panel-title"><i class="fa-solid fa-chart-line" style="color: var(--text-muted); margin-right: 0.4rem;"></i> Consumer Consumption Distribution</h3>
+        <p class="panel-subtitle">Mean daily kWh histogram across all 500 consumers</p>
+      </div>
+    </div>
+    <div class="chart-container" style="height: 240px;">
+      <canvas id="chart-consumption-dist"></canvas>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/analytics.js') }}"></script>
+{% endblock %}

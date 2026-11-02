@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{{ project_short_name }}{% endblock %} - {{ project_subtitle }}</title>
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <!-- Custom Dark Theme Stylesheet -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="dark-theme">
+  <div class="app-container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <a href="{{ url_for('main.dashboard') }}" class="brand-link" title="{{ project_name }}">
+          <div class="brand-logo">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+          </div>
+          <div class="brand-text" title="{{ project_short_name }}">
+            <span class="brand-title">AI-Based Electricity Theft</span>
+            <span class="brand-sub">Distribution Loss Detection</span>
+          </div>
+        </a>
+      </div>
+
+      <nav class="sidebar-menu">
+        <a href="{{ url_for('main.dashboard') }}" class="nav-item nav-link-custom {% if active_page == 'dashboard' %}active{% endif %}">
+          <i class="fa-solid fa-gauge-high"></i>
+          <span>Executive Dashboard</span>
+        </a>
+
+        <a href="{{ url_for('main.energy_accounting') }}" class="nav-item nav-link-custom {% if active_page == 'energy_accounting' %}active{% endif %}">
+          <i class="fa-solid fa-bolt"></i>
+          <span>Energy Accounting</span>
+        </a>
+
+        <a href="{{ url_for('main.ai_detection') }}" class="nav-item nav-link-custom {% if active_page == 'ai_detection' %}active{% endif %}">
+          <i class="fa-solid fa-brain"></i>
+          <span>AI Theft Detection</span>
+        </a>
+
+        <a href="{{ url_for('main.analytics') }}" class="nav-item nav-link-custom {% if active_page == 'analytics' %}active{% endif %}">
+          <i class="fa-solid fa-chart-line"></i>
+          <span>Analytics &amp; Insights</span>
+        </a>
+
+        <a href="{{ url_for('main.inspection') }}" class="nav-item nav-link-custom {% if active_page == 'inspection' %}active{% endif %}">
+          <i class="fa-solid fa-clipboard-check"></i>
+          <span>Inspection Worklist</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="telemetry-compact">
+          <span class="status-dot"></span>
+          <span>11 kV Distribution Grid</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="main-wrapper">
+      <!-- Top Navigation Bar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="mobile-toggle" id="mobile-toggle" aria-label="Toggle navigation">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+          
+          <div class="breadcrumb-nav">
+            <span class="current">{% block page_name %}Overview{% endblock %}</span>
+          </div>
+        </div>
+
+        <!-- Center Global Search -->
+        <div class="topbar-center">
+          <div class="topbar-search">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input type="text" id="global-search-input" class="topbar-search-input" placeholder="Search grid telemetry, meters, feeders (Ctrl+K)...">
+            <kbd class="search-kbd">Ctrl K</kbd>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <!-- Live Date / Time -->
+          <div class="clock-display">
+            <i class="fa-regular fa-clock" style="color: var(--cyan-accent); font-size: 0.8rem; margin-right: 0.35rem;"></i>
+            <span id="live-clock">--:--</span>
+          </div>
+
+          <!-- Status Indicator -->
+          <div class="telemetry-pill">
+            <span class="status-dot"></span>
+            <span>AMR Active</span>
+          </div>
+
+          <!-- User Profile -->
+          <div class="user-profile">
+            <div class="user-avatar" title="Grid Operations Desk">
+              <i class="fa-regular fa-user"></i>
+            </div>
+            <div class="user-meta d-none d-sm-block">
+              <h6>Operations Desk</h6>
+              <span class="user-role">Supervisory Control</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Body Container -->
+      <main class="content-body">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+
+  <!-- Shared Consumer Detail Modal -->
+  <div class="modal-overlay" id="consumer-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-title" id="modal-consumer-title">Consumer Diagnostic Profile</div>
+        <button class="modal-close" onclick="App.closeModal('consumer-modal')">&times;</button>
+      </div>
+      <div class="modal-body" id="modal-consumer-body">
+        <div class="spinner-container">
+          <div class="spinner"></div>
+          <div>Loading diagnostic profile...</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-custom btn-outline-custom" onclick="App.closeModal('consumer-modal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Core JavaScript -->
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
+

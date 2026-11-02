@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}Energy Accounting & Balance - {{ project_short_name }}{% endblock %}
+{% block page_name %}Energy Accounting{% endblock %}
+
+{% block content %}
+<!-- Page Header with Compact Toolbar -->
+<div class="page-header">
+  <div class="page-header-text">
+    <h2>Substation Energy Balance Accounting</h2>
+    <p>Mathematical reconciliation: Supplied Energy = Billed Energy + Technical Losses + Unexplained Losses</p>
+  </div>
+
+  <div class="page-toolbar">
+    <select id="energy-feeder-filter" class="form-select-sm" onchange="Energy.loadAll()">
+      <option value="all">All Feeders</option>
+      {% for f in feeders %}
+      <option value="{{ f.feeder_id }}">{{ f.feeder_id }} - {{ f.name }}</option>
+      {% endfor %}
+    </select>
+
+    <!-- CSV Export Button -->
+    <a href="/api/export/energy" id="btn-export-energy" class="btn-sm btn-subtle" title="Download daily audit CSV">
+      <i class="fa-solid fa-file-csv"></i>
+      <span>Export CSV</span>
+    </a>
+
+    <!-- Refresh Button -->
+    <button class="btn-sm btn-primary" onclick="Energy.loadAll()">
+      <i class="fa-solid fa-rotate"></i>
+      <span>Recalculate</span>
+    </button>
+  </div>
+</div>
+
+<!-- Mathematical Reconciliation Strip -->
+<div class="panel-card" style="padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+  <div style="display: flex; align-items: center; gap: 0.75rem;">
+    <span style="font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">Energy Balance</span>
+    <code style="font-family: var(--font-mono); font-size: 0.85rem; font-weight: 600; color: var(--cyan-accent); background: rgba(6, 182, 212, 0.1); padding: 0.25rem 0.6rem; border-radius: var(--radius-xs); border: 1px solid rgba(6, 182, 212, 0.2);">E_supplied = E_billed + E_technical + E_unexplained</code>
+  </div>
+  <div style="font-size: 0.75rem; color: var(--smart-teal); font-weight: 500; display: flex; align-items: center; gap: 0.4rem;">
+    <span class="status-dot"></span>
+    <span id="reconciliation-badge">Balanced (Residual: 0.000 kWh)</span>
+  </div>
+</div>
+
+<!-- Accounting Summary Cards (Data Panels with Semantic Left Accents) -->
+<div class="kpi-grid">
+  <!-- Supplied -->
+  <div class="kpi-card" style="border-left-color: var(--electric-blue);">
+    <div class="kpi-header">
+      <span class="kpi-label">Supplied Energy</span>
+      <span class="kpi-icon-badge icon-blue"><i class="fa-solid fa-bolt"></i></span>
+    </div>
+    <div class="kpi-value" id="acc-supplied">--</div>
+    <div class="kpi-sub">100.0% Input Energy</div>
+  </div>
+
+  <!-- Billed -->
+  <div class="kpi-card" style="border-left-color: var(--smart-teal);">
+    <div class="kpi-header">
+      <span class="kpi-label">Billed Energy</span>
+      <span class="kpi-icon-badge icon-teal"><i class="fa-solid fa-receipt"></i></span>
+    </div>
+    <div class="kpi-value value-success" id="acc-billed">--</div>
+    <div class="kpi-sub" id="acc-billed-pct">-- % Revenue Recovered</div>
+  </div>
+
+  <!-- Technical Losses -->
+  <div class="kpi-card" style="border-left-color: var(--warning);">
+    <div class="kpi-header">
+      <span class="kpi-label">Total Technical Loss</span>
+      <span class="kpi-icon-badge icon-amber"><i class="fa-solid fa-temperature-half"></i></span>
+    </div>
+    <div class="kpi-value value-warning" id="acc-tech">--</div>
+    <div class="kpi-sub" id="acc-tech-pct">-- % Physical Dissipation</div>
+  </div>
+
+  <!-- Unexplained Losses -->
+  <div class="kpi-card" style="border-left-color: var(--danger);">
+    <div class="kpi-header">
+      <span class="kpi-label">Unexplained Loss</span>
+      <span class="kpi-icon-badge icon-danger"><i class="fa-solid fa-triangle-exclamation"></i></span>
+    </div>
+    <div class="kpi-value value-danger" id="acc-unexplained">--</div>
+    <div class="kpi-sub" id="acc-unexplained-pct">-- % Suspected Discrepancy</div>
+  </div>
+</div>
+
+<!-- Technical Loss Breakdown (Cable, Core, Copper) -->
+<div class="dashboard-grid">
+  <div class="col-4 panel-card" style="border-left: 3px solid var(--electric-blue);">
+    <div class="panel-header">
+      <div>
+        <h3 class="panel-title"><i class="fa-solid fa-bolt-lightning" style="color: var(--electric-blue);"></i> Cable Ohmic Loss</h3>
+        <p class="panel-subtitle">Joule heating P = 3·I²·R</p>
+      </div>
+    </div>
+    <div class="kpi-value" style="font-size: 1.4rem;" id="acc-cable">--</div>
+    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem; line-height: 1.4;">
+      Conductor resistive heating based on 3-phase line current and ACSR conductor resistance.
+    </p>
+  </div>
+
+  <div class="col-4 panel-card" style="border-left: 3px solid var(--cyan-accent);">
+    <div class="panel-header">
+      <div>
+        <h3 class="panel-title"><i class="fa-solid fa-magnet" style="color: var(--cyan-accent);"></i> Transformer Core Loss</h3>
+        <p class="panel-subtitle">Continuous excitation iron loss</p>
+      </div>
+    </div>
+    <div class="kpi-value" style="font-size: 1.4rem;" id="acc-core">--</div>
+    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem; line-height: 1.4;">
+      Hysteresis and eddy current excitation in magnetic core laminations while energized.
+    </p>
+  </div>
+
+  <div class="col-4 panel-card" style="border-left: 3px solid var(--warning);">
+    <div class="panel-header">
+      <div>
+        <h3 class="panel-title"><i class="fa-solid fa-fire-flame-simple" style="color: var(--warning);"></i> Transformer Copper Loss</h3>
+        <p class="panel-subtitle">Load-dependent ohmic loss</p>
+      </div>
+    </div>
+    <div class="kpi-value value-warning" style="font-size: 1.4rem;" id="acc-copper">--</div>
+    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem; line-height: 1.4;">
+      Winding I²R dissipation scaling quadratically with apparent loading ratio (S / S_rated)².
+    </p>
+  </div>
+</div>
+
+<!-- Visualizations: Energy Flow & Daily Trend -->
+<div class="dashboard-grid">
+  <!-- Energy Breakdown Pie (Col 5) -->
+  <div class="col-5 panel-card">
+    <div class="panel-header">
+      <div>
+        <h3 class="panel-title"><i class="fa-solid fa-chart-pie" style="color: #0D9488;"></i> Energy Allocation Breakdown</h3>
+        <p class="panel-subtitle">Proportional distribution components</p>
+      </div>
+    </div>
+    <div class="chart-container" style="height: 240px;">
+      <canvas id="chart-accounting-pie"></canvas>
+    </div>
+  </div>
+
+  <!-- Daily Loss Trend Line Chart (Col 7) -->
+  <div class="col-7 panel-card">
+    <div class="panel-header">
+      <div>
+        <h3 class="panel-title"><i class="fa-solid fa-chart-line" style="color: #2563EB;"></i> Daily Loss Trend (30 Days)</h3>
+        <p class="panel-subtitle">Technical components vs unexplained loss</p>
+      </div>
+    </div>
+    <div class="chart-container" style="height: 240px;">
+      <canvas id="chart-accounting-trend"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Feeder-wise Accounting Cards -->
+<div style="margin-top: 0.5rem; margin-bottom: 0.65rem;">
+  <h3 style="font-size: 0.95rem; font-weight: 600; color: var(--text-main); margin: 0;">Feeder-Wise Energy Audit Breakdown</h3>
+  <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">Individual 11 kV feeder accounting summaries</p>
+</div>
+
+<div class="kpi-grid" id="feeder-cards-container" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+  <!-- Feeder cards rendered dynamically -->
+</div>
+
+<!-- Daily Energy Accounting Table -->
+<div class="panel-card" style="margin-top: 1rem;">
+  <div class="panel-header">
+    <div>
+      <h3 class="panel-title">Daily Energy Accounting Audit Logs</h3>
+      <p class="panel-subtitle">Itemized 150 feeder-day audit records with mathematical reconciliation</p>
+    </div>
+  </div>
+
+  <div class="table-responsive-custom">
+    <table class="custom-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Feeder</th>
+          <th>Day</th>
+          <th>Supplied (kWh)</th>
+          <th>Billed (kWh)</th>
+          <th>Cable Loss</th>
+          <th>Core Loss</th>
+          <th>Copper Loss</th>
+          <th>Tech Loss</th>
+          <th>Unexplained</th>
+          <th>Total Loss</th>
+          <th>Loss %</th>
+          <th>Residual</th>
+        </tr>
+      </thead>
+      <tbody id="daily-accounting-body">
+        <tr>
+          <td colspan="13" class="text-center" style="padding: 2rem;">
+            <div class="spinner-container">
+              <div class="spinner"></div>
+              <div>Loading energy accounting records...</div>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination-container">
+    <span id="page-info">Showing page 1</span>
+    <div class="pagination-controls">
+      <button class="page-btn" id="btn-prev" onclick="Energy.changePage(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
+      <span id="page-numbers" style="display: flex; gap: 0.25rem;"></span>
+      <button class="page-btn" id="btn-next" onclick="Energy.changePage(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/energy.js') }}"></script>
+{% endblock %}

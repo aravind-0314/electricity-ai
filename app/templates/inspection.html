@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block title %}Inspection Worklist - {{ project_short_name }}{% endblock %}
+{% block page_name %}Inspection Worklist{% endblock %}
+
+{% block content %}
+<!-- Page Header with Compact Toolbar -->
+<div class="page-header">
+  <div class="page-header-text">
+    <h2>Consumer Inspection Worklist</h2>
+    <p>Field verification tracking for suspicious consumers identified by AI anomaly detection.</p>
+  </div>
+
+  <div class="page-toolbar">
+    <a href="/api/export/inspection" id="btn-export-inspection" class="btn-sm btn-subtle">
+      <i class="fa-solid fa-file-csv" style="color: var(--smart-teal);"></i>
+      <span>Export Worklist CSV</span>
+    </a>
+  </div>
+</div>
+
+<!-- Status Summary Panels -->
+<div class="kpi-grid" style="grid-template-columns: repeat(5, 1fr); margin-bottom: 1.25rem;">
+  <!-- Pending -->
+  <div class="kpi-card" style="border-left-color: var(--warning);">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+      <span class="kpi-label">Pending</span>
+      <div class="kpi-icon-badge icon-amber">
+        <i class="fa-solid fa-clock"></i>
+      </div>
+    </div>
+    <div class="kpi-value value-warning" id="status-pending">--</div>
+    <div class="kpi-sub">Awaiting Assignment</div>
+  </div>
+
+  <!-- Scheduled -->
+  <div class="kpi-card" style="border-left-color: var(--electric-blue);">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+      <span class="kpi-label">Scheduled</span>
+      <div class="kpi-icon-badge icon-blue">
+        <i class="fa-solid fa-calendar-check"></i>
+      </div>
+    </div>
+    <div class="kpi-value" id="status-scheduled">--</div>
+    <div class="kpi-sub">Field Team Assigned</div>
+  </div>
+
+  <!-- In Progress -->
+  <div class="kpi-card" style="border-left-color: var(--cyan-accent);">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+      <span class="kpi-label">In Progress</span>
+      <div class="kpi-icon-badge icon-cyan">
+        <i class="fa-solid fa-person-digging"></i>
+      </div>
+    </div>
+    <div class="kpi-value" id="status-progress">--</div>
+    <div class="kpi-sub">Technicians on Site</div>
+  </div>
+
+  <!-- Completed -->
+  <div class="kpi-card" style="border-left-color: var(--smart-teal);">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+      <span class="kpi-label">Completed</span>
+      <div class="kpi-icon-badge icon-teal">
+        <i class="fa-solid fa-clipboard-check"></i>
+      </div>
+    </div>
+    <div class="kpi-value value-success" id="status-completed">--</div>
+    <div class="kpi-sub">Field Audit Finished</div>
+  </div>
+
+  <!-- Verified Cleared -->
+  <div class="kpi-card" style="border-left-color: var(--text-muted);">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+      <span class="kpi-label">Verified Cleared</span>
+      <div class="kpi-icon-badge">
+        <i class="fa-solid fa-circle-check"></i>
+      </div>
+    </div>
+    <div class="kpi-value" id="status-verified">--</div>
+    <div class="kpi-sub">Benign Consumption</div>
+  </div>
+</div>
+
+<!-- Filters Bar -->
+<div class="panel-card" style="margin-bottom: 1.25rem; padding: 0.85rem 1rem;">
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+    <!-- Search with icon -->
+    <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 240px; position: relative;">
+      <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 0.85rem; color: var(--secondary-text); font-size: 0.8rem; pointer-events: none;"></i>
+      <input type="text" id="insp-search" class="form-control-sm" style="width: 100%; padding-left: 2.15rem;" placeholder="Search Consumer ID (CONS-0001) or Inspection ID..." oninput="Inspection.onSearchInput()">
+    </div>
+
+    <!-- Feeder Filter -->
+    <select id="insp-feeder" class="form-select-sm" onchange="Inspection.loadWorklist(1)">
+      <option value="all">All Feeders</option>
+      {% for f in feeders %}
+      <option value="{{ f.feeder_id }}">{{ f.feeder_id }}</option>
+      {% endfor %}
+    </select>
+
+    <!-- Priority Filter -->
+    <select id="insp-priority" class="form-select-sm" onchange="Inspection.loadWorklist(1)">
+      <option value="all">All Priorities</option>
+      <option value="Critical">Critical Priority</option>
+      <option value="High">High Priority</option>
+      <option value="Medium">Medium Priority</option>
+    </select>
+
+    <!-- Status Filter -->
+    <select id="insp-status" class="form-select-sm" onchange="Inspection.loadWorklist(1)">
+      <option value="all">All Statuses</option>
+      <option value="Pending">Pending</option>
+      <option value="Scheduled">Scheduled</option>
+      <option value="In Progress">In Progress</option>
+      <option value="Completed">Completed</option>
+      <option value="Not Suspicious After Verification">Not Suspicious After Verification</option>
+    </select>
+
+    <!-- Sort Order -->
+    <select id="insp-sort" class="form-select-sm" onchange="Inspection.loadWorklist(1)">
+      <option value="desc">Score: High to Low</option>
+      <option value="asc">Score: Low to High</option>
+    </select>
+  </div>
+</div>
+
+<!-- Worklist Table -->
+<div class="panel-card">
+  <div class="panel-header">
+    <div>
+      <h3 class="panel-title"><i class="fa-solid fa-list-check" style="color: var(--electric-blue); margin-right: 0.4rem;"></i> Inspection Candidates</h3>
+      <p class="panel-subtitle">Sorted by anomaly severity and field triage status</p>
+    </div>
+  </div>
+
+  <div class="table-responsive-custom">
+    <table class="custom-table" id="worklist-table">
+      <thead>
+        <tr>
+          <th>Consumer ID</th>
+          <th>Feeder</th>
+          <th>Tariff</th>
+          <th>Sanctioned</th>
+          <th>Mean Daily</th>
+          <th>Score</th>
+          <th>Priority</th>
+          <th>Diagnostic Reason</th>
+          <th>Inspection Status</th>
+          <th>Remarks</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="worklist-table-body">
+        <tr>
+          <td colspan="11" class="text-center" style="padding: 2.5rem;">
+            <div class="spinner-container">
+              <div class="spinner"></div>
+              <div>Loading inspection worklist candidates...</div>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination Controls -->
+  <div class="pagination-container">
+    <span id="insp-page-info">Showing page 1</span>
+    <div class="pagination-controls">
+      <button class="page-btn" id="insp-btn-prev" onclick="Inspection.changePage(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
+      <button class="page-btn" id="insp-btn-next" onclick="Inspection.changePage(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
+    </div>
+  </div>
+</div>
+
+<!-- Inspection Edit Modal -->
+<div class="modal-overlay" id="edit-inspection-modal">
+  <div class="modal-box" style="max-width: 520px;">
+    <div class="modal-header">
+      <div class="modal-title" id="edit-modal-title">Update Inspection Status</div>
+      <button class="modal-close" onclick="App.closeModal('edit-inspection-modal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="inspection-form" onsubmit="Inspection.submitUpdate(event)">
+        <input type="hidden" id="edit-inspection-id">
+
+        <div style="margin-bottom: 0.85rem;">
+          <label style="font-size: 0.75rem; font-weight: 600; color: var(--secondary-text); text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 0.25rem;">Consumer ID</label>
+          <input type="text" id="edit-consumer-id" class="form-control-sm" style="width: 100%; background: var(--bg-canvas); font-weight: 600; color: var(--primary-text);" readonly>
+        </div>
+
+        <div style="margin-bottom: 0.85rem;">
+          <label style="font-size: 0.75rem; font-weight: 600; color: var(--secondary-text); text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 0.25rem;">Inspection Status</label>
+          <select id="edit-status-select" class="form-select-sm" style="width: 100%;" required>
+            <option value="Pending">Pending</option>
+            <option value="Scheduled">Scheduled</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">Completed</option>
+            <option value="Not Suspicious After Verification">Not Suspicious After Verification</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom: 0.85rem;">
+          <label style="font-size: 0.75rem; font-weight: 600; color: var(--secondary-text); text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 0.25rem;">Inspecting Technician / Officer</label>
+          <input type="text" id="edit-inspector" class="form-control-sm" style="width: 100%;" placeholder="e.g. Er. S. Ramanathan (Enforcement Wing)">
+        </div>
+
+        <div style="margin-bottom: 1.25rem;">
+          <label style="font-size: 0.75rem; font-weight: 600; color: var(--secondary-text); text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 0.25rem;">Field Remarks / Inspection Findings</label>
+          <textarea id="edit-remarks" class="form-control-sm" style="width: 100%; height: 85px; resize: vertical;" placeholder="Enter physical audit findings, seal condition, meter integrity status, or reasons for clearance..."></textarea>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.65rem;">
+          <button type="button" class="btn-sm btn-subtle" onclick="App.closeModal('edit-inspection-modal')">Cancel</button>
+          <button type="submit" class="btn-sm btn-primary" id="btn-save-inspection">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/inspection.js') }}"></script>
+{% endblock %}
