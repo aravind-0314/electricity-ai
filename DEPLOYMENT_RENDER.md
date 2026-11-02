@@ -30,9 +30,9 @@ This project is a self-contained Flask web application that serves both the HTML
 [Render Reverse Proxy / Cloudflare SSL]
        │ (Port 80/443 -> Forwarded to $PORT)
        ▼
-[Gunicorn WSGI Server: app:app (0.0.0.0:$PORT)]
+[Gunicorn WSGI Server: wsgi:app (0.0.0.0:$PORT)]
        │
-       ├── Flask Application Factory (`app/__init__.py`)
+       ├── Flask Application Factory (`app/__init__.py:create_app`)
        ├── 5 Core Web Views (`/dashboard`, `/energy-accounting`, `/ai-detection`, `/analytics`, `/inspection`)
        ├── 12 REST API Endpoints (`/api/*`)
        ├── Pre-trained ML Models (`models/isolation_forest.joblib`, `models/random_forest.joblib`)
@@ -54,7 +54,7 @@ When creating a new **Web Service** on [dashboard.render.com](https://dashboard.
 | **Root Directory** | *(Leave blank)* | Uses root of repository |
 | **Runtime** | **Python 3** | Render uses standard Python environment |
 | **Build Command** | `pip install -r requirements.txt` | Installs Flask, Gunicorn, Scikit-learn, Pandas, etc. |
-| **Start Command** | `gunicorn --workers 2 --threads 2 --timeout 120 --bind 0.0.0.0:$PORT app:app` | Binds to Render's assigned `$PORT` |
+| **Start Command** | `gunicorn --workers 2 --threads 2 --timeout 120 --bind 0.0.0.0:$PORT wsgi:app` | Binds to Render's assigned `$PORT` |
 | **Instance Type / Plan** | **Free** | $0.00/month (512 MB RAM, 0.1 CPU) |
 | **Auto-Deploy** | **Yes** | Automatically deploys new commits pushed to `main` |
 
@@ -62,20 +62,20 @@ When creating a new **Web Service** on [dashboard.render.com](https://dashboard.
 
 ## 3. Flask Application Entry Point & Gunicorn Command
 
-### Application Entry Point
-- **File:** `app.py`
-- **WSGI Callable:** `app`
-- **Definition in `app.py`:**
-  ```python
-  from app import create_app
-  app = create_app()
-  ```
-- **Gunicorn Target:** `app:app` (`<filename_without_py>:<wsgi_app_variable>`)
+### Resolving the `app.py` vs `app/` Package Naming Conflict
+In Python, when a project contains both a script `app.py` and a package directory `app/` containing `__init__.py`:
+- Executing `gunicorn app:app` causes Python's module importer to load the package `app/__init__.py` instead of the root file `app.py`.
+- Because the package defines the application factory `create_app()` rather than an instantiated variable `app`, Gunicorn encountered: `AttributeError: module 'app' has no attribute 'app'`.
 
-### Exact Start Command
+**The Solution:**
+1. **Dedicated WSGI Entry Point (`wsgi.py`):** We provide a dedicated, unambiguous production entry point `wsgi.py` that imports `create_app` from `app` and instantiates `app = create_app()`. Since there is no directory named `wsgi/`, there is zero namespace collision.
+2. **Backwards-Compatible Module Resolver:** As a redundant safety layer, `app/__init__.py` defines a dynamic attribute resolver (`__getattr__('app')`) that lazy-loads `create_app()` if `app:app` is ever invoked directly. Both targets succeed.
+
+### Verified Start Command (Recommended)
 ```bash
-gunicorn --workers 2 --threads 2 --timeout 120 --bind 0.0.0.0:$PORT app:app
+gunicorn --workers 2 --threads 2 --timeout 120 --bind 0.0.0.0:$PORT wsgi:app
 ```
+*(Alternatively, `gunicorn --workers 2 --threads 2 --timeout 120 --bind 0.0.0.0:$PORT app:app` is also supported through the module-level fallback).*
 
 #### Why these flags?
 - `--bind 0.0.0.0:$PORT`: Render dynamically assigns a port to each container via the `$PORT` environment variable (typically port 10000). Gunicorn **must** bind to `0.0.0.0:$PORT` to receive incoming traffic from Render's routing mesh.
@@ -177,7 +177,7 @@ Because this repository includes `render.yaml`:
    - **Name:** `electricity-theft-detection`
    - **Language / Runtime:** `Python 3`
    - **Build Command:** `pip install -r requirements.txt`
-   - **Start Command:** `gunicorn --workers 2 --threads 2 --timeout 120 --bind 0.0.0.0:$PORT app:app`
+   - **Start Command:** `gunicorn --workers 2 --threads 2 --timeout 120 --bind 0.0.0.0:$PORT wsgi:app`
    - **Instance Type:** `Free`
 5. In the **Environment Variables** section, add:
    - `PYTHON_VERSION` = `3.11.9`

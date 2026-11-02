@@ -40,3 +40,14 @@ def create_app(config_class=Config) -> Flask:
 
     return app
 
+# Lazy WSGI application instance to resolve the 'app:app' import target if invoked
+_app_instance = None
+
+def __getattr__(name: str):
+    global _app_instance
+    if name == "app":
+        if _app_instance is None:
+            _app_instance = create_app()
+        return _app_instance
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+

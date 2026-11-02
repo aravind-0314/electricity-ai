@@ -182,9 +182,9 @@ Open your browser and navigate to:
 
 This repository is pre-configured for one-click or manual deployment to **Render's Free Web Service** tier using Gunicorn.
 
-- **WSGI Target:** `app:app`
+- **WSGI Target:** `wsgi:app`
 - **Build Command:** `pip install -r requirements.txt`
-- **Start Command:** `gunicorn --workers 2 --threads 2 --timeout 120 --bind 0.0.0.0:$PORT app:app`
+- **Start Command:** `gunicorn --workers 2 --threads 2 --timeout 120 --bind 0.0.0.0:$PORT wsgi:app`
 - **Complete Step-by-Step Instructions:** Refer to [DEPLOYMENT_RENDER.md](DEPLOYMENT_RENDER.md)
 
 > [!IMPORTANT]
